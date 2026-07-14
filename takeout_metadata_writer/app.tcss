@@ -1,0 +1,95 @@
+/* ── Screen defaults ──────────────────────────────────────────────────── */
+
+Screen {
+    background: $surface;
+}
+
+
+/* ── PathInputScreen ──────────────────────────────────────────────────── */
+
+PathInputScreen {
+    align: center middle;
+}
+
+PathInputScreen > Input {
+    width: 60;
+    margin: 1 2;
+}
+
+PathInputScreen > DirectoryTree {
+    width: 60;
+    height: 1fr;
+    margin: 0 2;
+}
+
+PathInputScreen > Button {
+    width: 20;
+    margin: 1 2;
+}
+
+
+/* ── ResultsScreen ────────────────────────────────────────────────────── */
+
+ResultsScreen {
+    layout: vertical;
+}
+
+ResultsScreen > Label {
+    text-style: bold;
+    padding: 0 1;
+}
+
+ResultsScreen > DataTable {
+    height: 1fr;
+    margin: 0 1;
+}
+
+ResultsScreen > Button {
+    width: 20;
+    margin: 0 1;
+}
+
+
+/* ── LoadingIndicator ─────────────────────────────────────────────────── */
+
+LoadingIndicator {
+    align: center middle;
+    height: 100%;
+}
+
+
+/* ── ConfirmModal ─────────────────────────────────────────────────────── */
+
+ConfirmModal {
+    align: center middle;
+}
+
+ConfirmModal > Label {
+    width: 50;
+    text-align: center;
+    padding: 1 2;
+}
+
+ConfirmModal > Button {
+    width: 16;
+    margin: 0 1;
+}
+
+
+/* ── SummaryScreen ────────────────────────────────────────────────────── */
+
+SummaryScreen {
+    align: center middle;
+}
+
+SummaryScreen > Label {
+    text-style: bold;
+    width: 30;
+    text-align: center;
+    padding: 0 1;
+}
+
+SummaryScreen > Button {
+    width: 20;
+    margin: 1 2;
+}

@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "Restore Google Takeout media timestamps from companion metadata"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+dependencies = [
+    "textual>=6.6.0",
+]
 
 [tool.setuptools.packages.find]
 include = ["takeout_metadata_writer*"]

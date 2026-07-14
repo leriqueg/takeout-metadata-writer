@@ -34,19 +34,19 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Core Logic — scanner, matcher, processor
 
-- [ ] 2.1 Create `core.py` — `scan_directory(path)` generator yielding `Path` objects matching media extensions via `rglob`
-- [ ] 2.2 Implement `match_json(media_path)` — companion lookup: `{stem}.{ext}.supplemental-metadata.json`
-- [ ] 2.3 Implement `read_metadata(json_path)` — parse `photoTakenTime.timestamp` and `creationTime.timestamp` as ints; catch `KeyError`/`json.JSONDecodeError`
-- [ ] 2.4 Implement `process_file(media_path)` — orchestrate: match → read metadata → dry-run table or write via `platform.set_file_times()`; return `ProcessResult`; isolate per-file errors
-- [ ] 2.5 Implement `summarize(results)` — return `(updated, skipped, errors)` counts
+- [x] 2.1 Create `core.py` — `scan_directory(path)` generator yielding `Path` objects matching media extensions via `rglob`
+- [x] 2.2 Implement `match_json(media_path)` — companion lookup: `{stem}.{ext}.supplemental-metadata.json`
+- [x] 2.3 Implement `read_metadata(json_path)` — parse `photoTakenTime.timestamp` and `creationTime.timestamp` as ints; catch `KeyError`/`json.JSONDecodeError`
+- [x] 2.4 Implement `process_file(media_path, dry_run=True)` — orchestrate: match → read metadata → write via `platform.set_file_times()`; return `ProcessResult`; isolate per-file errors
+- [x] 2.5 Implement `summarize(results)` — return `(updated, skipped, errors)` counts
 
 ## Phase 3: CLI + TUI — argparse, output formatting
 
-- [ ] 3.1 Create `tui.py` — `print_dry_run_table(results)`: formatted table with file name, current timestamps, target timestamps
-- [ ] 3.2 Implement `print_summary(updated, skipped, errors)` — end-of-run totals output
-- [ ] 3.3 Create `cli.py` — argparse: positional `path` argument, `--dry-run` flag; `main()` function wiring path → `scan_directory` → `process_file` → `print_dry_run_table`/`print_summary`
+- [x] 3.1 Create `tui.py` — `print_dry_run_table(results)`: formatted table with file name, current timestamps, target timestamps
+- [x] 3.2 Implement `print_summary(updated, skipped, errors)` — end-of-run totals output
+- [x] 3.3 Create `cli.py` — argparse: positional `path` argument, `--dry-run` flag; `main()` function wiring path → `scan_directory` → `process_file` → `print_dry_run_table`/`print_summary`
 
 ## Phase 4: Integration — entry point, wiring
 
-- [ ] 4.1 Create `__main__.py` — `from takeout_metadata_writer.cli import main; main()`
-- [ ] 4.2 Wire imports across modules and verify `python -m takeout_metadata_writer <path>` runs end-to-end
+- [x] 4.1 Create `__main__.py` — `from takeout_metadata_writer.cli import main; main()`
+- [x] 4.2 Wire imports across modules and verify `python -m takeout_metadata_writer <path>` runs end-to-end
