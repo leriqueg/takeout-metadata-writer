@@ -93,9 +93,9 @@ class ResultsScreen(Screen):
                     return
                 all_results.append(core.process_file(mp, dry_run=True))
         except Exception as exc:
-            self.call_from_thread(self._notify_err, f"Scan error: {exc}")
+            self.app.call_from_thread(self._notify_err, f"Scan error: {exc}")
             return
-        self.call_from_thread(self._show_results, all_results)
+        self.app.call_from_thread(self._show_results, all_results)
 
     def _notify_err(self, msg: str) -> None:
         self.sub_title = ""
@@ -157,9 +157,9 @@ class ResultsScreen(Screen):
                 else:
                     sk += 1
         except Exception as exc:
-            self.call_from_thread(self._notify_err, f"Write error: {exc}")
+            self.app.call_from_thread(self._notify_err, f"Write error: {exc}")
             return
-        self.call_from_thread(self._finish_write, up, sk, er)
+        self.app.call_from_thread(self._finish_write, up, sk, er)
 
     def _finish_write(self, up: int, sk: int, er: int) -> None:
         self.sub_title = ""
