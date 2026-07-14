@@ -1,0 +1,62 @@
+# OpenSpec SDD Configuration — takeout-metada-writer
+mode: hybrid
+persistence:
+  openspec: true
+  engram: true
+
+context: |
+  Python CLI/TUI tool that processes Google Takeout exports.
+  Scans directories recursively for media files, finds companion
+  .supplemental-metadata.json files, and restores file timestamps
+  from JSON metadata (photoTakenTime → creation, creationTime → modification).
+  Standard-library only for core processing; optional Pillow/pyexiv2 in future.
+  Python 3.10+ target. No existing source files, no tests, no CI.
+
+strict_tdd: false
+# Strict TDD disabled: no test runner detected in the project. Install pytest
+# and configure testing before enabling strict TDD mode.
+
+testing:
+  runner:
+    available: false
+    framework: null
+    command: null
+  layers:
+    unit: false
+    integration: false
+    e2e: false
+  coverage:
+    available: false
+    command: null
+  quality:
+    linter: null
+    type_checker: null
+    formatter: null
+
+review:
+  strategy: chained-pr
+  branch_model: stacked-to-main
+  max_lines_per_pr: 200
+
+phases:
+  proposal:
+    required: true
+    output: openspec/changes/<change-id>/proposal.md
+  spec:
+    required: true
+    output: openspec/changes/<change-id>/spec.md
+  design:
+    required: true
+    output: openspec/changes/<change-id>/design.md
+  tasks:
+    required: true
+    output: openspec/changes/<change-id>/tasks.md
+  apply:
+    required: true
+    output: openspec/changes/<change-id>/apply-log.md
+  verify:
+    required: true
+    output: openspec/changes/<change-id>/verify-log.md
+  archive:
+    required: true
+    output: openspec/changes/<change-id>/archive.md
