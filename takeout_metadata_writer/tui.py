@@ -56,7 +56,7 @@ def print_dry_run_table(results: list[ProcessResult]) -> None:
     Columns shown:
 
         File | Current Created | Current Modified | Target Created
-        | Target Modified | Status
+        | Created From | Target Modified | Modified From | Status
     """
     updates = [r for r in results if r.action == "update"]
     errors = [r for r in results if r.action == "error"]
@@ -67,7 +67,7 @@ def print_dry_run_table(results: list[ProcessResult]) -> None:
         return
 
     # ── Table rows (updates + errors) ─────────────────────────────────────
-    rows: list[tuple[str, str, str, str, str, str]] = []
+    rows: list[tuple[str, str, str, str, str, str, str, str]] = []
 
     for r in updates + errors:
         mf = r.media_file
@@ -77,6 +77,8 @@ def print_dry_run_table(results: list[ProcessResult]) -> None:
         current_modified = _fmt_timestamp(int(stat.st_mtime) if stat else None)
         target_created = _fmt_timestamp(mf.photo_taken_time)
         target_modified = _fmt_timestamp(mf.creation_time)
+        created_from = mf.creation_source
+        modified_from = mf.modification_source
 
         if r.action == "error":
             status = f"ERROR: {r.reason}" if r.reason else "ERROR"
@@ -88,7 +90,9 @@ def print_dry_run_table(results: list[ProcessResult]) -> None:
             current_created,
             current_modified,
             target_created,
+            created_from,
             target_modified,
+            modified_from,
             status,
         ))
 
@@ -98,7 +102,9 @@ def print_dry_run_table(results: list[ProcessResult]) -> None:
         "Current Created",
         "Current Modified",
         "Target Created",
+        "Created From",
         "Target Modified",
+        "Modified From",
         "Status",
     ]
     col_widths = [len(h) for h in headers]
@@ -108,7 +114,7 @@ def print_dry_run_table(results: list[ProcessResult]) -> None:
             col_widths[i] = max(col_widths[i], len(cell))
 
     # Cap the filename column so very long names don't break the layout
-    col_widths[0] = min(col_widths[0], 60)
+    col_widths[0] = min(col_widths[0], 45)
 
     # ── Render header ─────────────────────────────────────────────────────
     separator = "  ".join("-" * w for w in col_widths)

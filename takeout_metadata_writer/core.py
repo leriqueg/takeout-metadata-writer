@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from typing import Generator, Optional
 
+from takeout_metadata_writer.exif import parse_jpeg
 from takeout_metadata_writer.models import MediaFile, ProcessResult
 from takeout_metadata_writer.platform import set_file_times
 
@@ -129,15 +130,33 @@ def read_metadata(
     return photo_time, creation_time, None
 
 
+_EXIF_EXTS = frozenset({".jpg", ".jpeg", ".heic", ".heif"})
+
+
 def process_file(media_path: Path, dry_run: bool) -> ProcessResult:
     """Process a single media file end-to-end.
 
     The pipeline is::
 
-        stat → match_json → read_metadata → [set_file_times]
+        stat → [exif] → match_json → read_metadata → resolve
+        → validate → [set_file_times]
 
     If *dry_run* is ``True`` the timestamps are read and reported but never
     written to disk.
+
+    **Timestamp resolution** (priority order):
+
+    ================= ========================== =======================
+    Field             Source priority             Fallback
+    ================= ========================== =======================
+    Creation time     1. EXIF ``DateTimeOriginal``  → JSON → ``None``
+    Modification time 1. JSON ``creationTime``       → ``None``
+    ================= ========================== =======================
+
+    **Validation**: creation time is always clamped to be ≤ modification
+    time.  If the EXIF date exceeds the JSON modification date the
+    creation time falls back to JSON ``photoTakenTime``; if that still
+    exceeds modification, creation is set equal to modification.
 
     Parameters
     ----------
@@ -168,9 +187,9 @@ def process_file(media_path: Path, dry_run: bool) -> ProcessResult:
             action="skip_no_json",
         )
 
-    # --- read metadata ------------------------------------------------------
-    photo_time, creation_time, error_msg = read_metadata(json_path)
-    if photo_time is None:
+    # --- read JSON metadata ------------------------------------------------
+    json_photo, json_creation, json_err = read_metadata(json_path)
+    if json_photo is None:
         return ProcessResult(
             media_file=MediaFile(
                 path=media_path,
@@ -178,24 +197,76 @@ def process_file(media_path: Path, dry_run: bool) -> ProcessResult:
                 current_stat=current_stat,
             ),
             action="skip_no_photo_time",
-            reason=error_msg or "photoTakenTime.timestamp not found in JSON",
+            reason=json_err or "photoTakenTime.timestamp not found in JSON",
         )
 
-    # --- apply timestamps (write mode only) ---------------------------------
+    # --- read EXIF (JPEG / HEIF only) --------------------------------------
+    exif_time: Optional[int] = None
+    device_make: Optional[str] = None
+    device_model: Optional[str] = None
+    if media_path.suffix.lower() in _EXIF_EXTS:
+        try:
+            exif_time, device_make, device_model = parse_jpeg(media_path)
+        except Exception as exc:
+            logger.debug("EXIF parse failed for %s: %s", media_path, exc)
+
+    # --- resolve final timestamps & sources --------------------------------
+    creation: Optional[int]
+    creation_source: str
+    if exif_time is not None:
+        creation = exif_time
+        creation_source = "EXIF"
+    elif json_photo is not None:
+        creation = json_photo
+        creation_source = "JSON"
+    else:
+        creation = None
+        creation_source = "\u2014"
+
+    modification: Optional[int] = json_creation
+    modification_source: str = "JSON" if modification is not None else "\u2014"
+
+    # --- validate: creation ≤ modification ---------------------------------
+    if (
+        creation is not None
+        and modification is not None
+        and creation > modification
+    ):
+        # EXIF date is likely wrong — try the JSON fallback
+        if creation_source == "EXIF" and json_photo is not None and json_photo <= modification:
+            creation = json_photo
+            creation_source = "JSON"
+        else:
+            creation = modification
+            creation_source = "\u2014"
+        logger.debug(
+            "Clamped creation time for %s (exif=%s json=%s mod=%s → creation=%s)",
+            media_path.name,
+            exif_time,
+            json_photo,
+            modification,
+            creation,
+        )
+
+    # --- apply timestamps (write mode only) --------------------------------
     if not dry_run:
         err = set_file_times(
             media_path,
-            creation_time=photo_time,
-            modification_time=creation_time,
+            creation_time=creation,
+            modification_time=modification,
         )
         if err is not None:
             return ProcessResult(
                 media_file=MediaFile(
                     path=media_path,
                     json_path=json_path,
-                    photo_taken_time=photo_time,
-                    creation_time=creation_time,
+                    photo_taken_time=creation,
+                    creation_time=modification,
+                    creation_source=creation_source,
+                    modification_source=modification_source,
                     current_stat=current_stat,
+                    device_make=device_make,
+                    device_model=device_model,
                 ),
                 action="error",
                 reason=err,
@@ -205,9 +276,13 @@ def process_file(media_path: Path, dry_run: bool) -> ProcessResult:
         media_file=MediaFile(
             path=media_path,
             json_path=json_path,
-            photo_taken_time=photo_time,
-            creation_time=creation_time,
+            photo_taken_time=creation,
+            creation_time=modification,
+            creation_source=creation_source,
+            modification_source=modification_source,
             current_stat=current_stat,
+            device_make=device_make,
+            device_model=device_model,
         ),
         action="update",
     )

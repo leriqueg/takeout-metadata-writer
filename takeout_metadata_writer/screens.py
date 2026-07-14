@@ -78,7 +78,16 @@ class ResultsScreen(Screen):
 
     def on_mount(self) -> None:
         t = self.query_one(DataTable)
-        t.add_columns("File", "Current Created", "Current Modified", "Target Created", "Target Modified", "Status")
+        t.add_columns(
+            "File",
+            "Current Created",
+            "Current Modified",
+            "Target Created",
+            "Created From",
+            "Target Modified",
+            "Modified From",
+            "Status",
+        )
         t.visible = False
         self.sub_title = "Scanning..."
         self.scan_worker()
@@ -121,7 +130,9 @@ class ResultsScreen(Screen):
                 _fmt(int(s.st_ctime) if s else None),
                 _fmt(int(s.st_mtime) if s else None),
                 _fmt(mf.photo_taken_time),
+                mf.creation_source,
                 _fmt(mf.creation_time),
+                mf.modification_source,
                 status,
             )
 
