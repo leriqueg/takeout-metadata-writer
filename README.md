@@ -1,45 +1,136 @@
 # takeout-metadata-writer
 
-Restaura las fechas reales de captura y subida de fotos y videos exportados desde
-Google Takeout, usando los metadatos contenidos en los archivos JSON complementarios
-que Google incluye en la exportación.
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![GitHub last commit](https://img.shields.io/github/last-commit/leriqueg/takeout-metadata-writer)](https://github.com/leriqueg/takeout-metadata-writer)
+[![GitHub issues](https://img.shields.io/github/issues/leriqueg/takeout-metadata-writer)](https://github.com/leriqueg/takeout-metadata-writer/issues)
 
-## Motivación
+Restore the original capture and upload timestamps on photos and videos exported from Google Takeout, using the companion JSON metadata files Google bundles with every export.
 
-Cuando exportás tus fotos de Google Photos mediante Takeout, los archivos resultantes
-pierden sus fechas originales:
+---
 
-- La **fecha de creación** del archivo es la fecha en que se generó el Takeout.
-- La **fecha de modificación** es la fecha en que se escribió en disco.
+## Motivation
 
-Esto hace imposible ordenar cronológicamente las fotos con el explorador de archivos.
-Afortunadamente, Google incluye un archivo JSON por cada foto con dos fechas clave:
+When you export your Google Photos library via Takeout, every file loses its original timestamps:
 
-- `photoTakenTime` → la fecha real de captura.
-- `creationTime` → la fecha de subida a Google Photos.
+- The **creation time** becomes the date the Takeout archive was generated.
+- The **modification time** becomes the date the file was written to disk.
 
-## Funcionalidades
+That makes it impossible to browse your photos chronologically in any file explorer. Luckily, Google includes a `.supplemental-metadata.json` file for each media item with two critical fields:
 
-- **Escaneo recursivo**: procesa una carpeta de Takeout descomprimida completament.
-- **Emparejamiento inteligente**: localiza el JSON complementario para cada archivo
-  multimedia siguiendo el patrón de nomenclatura de Google.
-- **Resumen previo**: muestra un informe de lo que se va a modificar antes de
-  escribir.
-- **Restauración de fechas**: setea la fecha de creación del archivo con
-  `photoTakenTime` y la fecha de modificación con `creationTime`.
-- **Interfaz TUI**: interfaz de terminal simple para operar sin complicaciones.
+| JSON field             | Meaning                            | Maps to              |
+|------------------------|------------------------------------|----------------------|
+| `photoTakenTime`       | When the photo was actually taken  | Creation time        |
+| `creationTime`         | When it was uploaded to Google     | Modification time    |
 
-## Uso
+---
+
+## Features
+
+- **Recursive scanning** — walks an entire unarchived Takeout directory tree.
+- **Smart JSON matching** — finds each file's companion metadata by exact name, with a glob fallback that handles truncated suffixes (e.g. `.supplemental-meta.json`) and duplicate markers (e.g. `.supplemental-metadata(1).json`).
+- **EXIF timestamp resolution** — for JPEG files, reads `DateTimeOriginal` from the file's own EXIF header and uses it as the creation time when available. Falls back to the JSON `photoTakenTime` if no EXIF data exists.
+- **Timestamp validation** — ensures creation time is never later than modification time. If EXIF data contradicts the JSON, the parser falls back through JSON `photoTakenTime` and, if still invalid, clamps creation to match modification.
+- **Device metadata** — extracts camera/phone make and model from EXIF (`Make` / `Model` tags).
+- **Source columns** — the dry-run table and TUI show where each timestamp came from (`EXIF`, `JSON`, or `—`).
+- **Dual interface** — rich Textual TUI (default) or classic CLI (`--cli`).
+- **Pure Python** — uses only the standard library for media processing. The Textual TUI requires `textual >= 6.6.0`, but the core library is dependency-free.
+
+---
+
+## Quick start
 
 ```bash
-# Modo resumen (solo muestra lo que se haría)
-python -m takeout_metadata_writer /ruta/al/takeout --dry-run
+# Install
+pip install takeout-metadata-writer
 
-# Modo escritura (aplica los cambios)
-python -m takeout_metadata_writer /ruta/al/takeout
+# Preview what would change (no files touched)
+takeout-meta-writer /path/to/Takeout --dry-run
+
+# Apply timestamps
+takeout-meta-writer /path/to/Takeout
 ```
 
-## Estructura de archivos esperada
+### Run from source
+
+```bash
+git clone https://github.com/leriqueg/takeout-metadata-writer.git
+cd takeout-metadata-writer
+
+# Install runtime dependency (Textual TUI)
+pip install textual>=6.6.0
+
+# Preview
+python -m takeout_metadata_writer /path/to/Takeout --dry-run
+
+# Apply
+python -m takeout_metadata_writer /path/to/Takeout
+```
+
+---
+
+## Usage
+
+### CLI mode
+
+Use the `--cli` flag to get a terminal table instead of the TUI:
+
+```bash
+# Preview with source columns
+python -m takeout_metadata_writer --cli /path/to/Takeout --dry-run
+
+# Apply timestamps
+python -m takeout_metadata_writer --cli /path/to/Takeout
+```
+
+The dry-run table shows eight columns:
+
+| Column           | Description                                     |
+|------------------|-------------------------------------------------|
+| File             | Media file name                                 |
+| Current Created  | File system creation time (before change)       |
+| Current Modified | File system modification time (before change)   |
+| Target Created   | Resolved creation timestamp to apply            |
+| Created From     | Source of the creation time — `EXIF`, `JSON`, `—` |
+| Target Modified  | Resolved modification timestamp to apply        |
+| Modified From    | Source of the modification time — `JSON` or `—`   |
+| Status           | `UPDATE`, `ERROR`, or skip reason               |
+
+### TUI mode (default)
+
+Running without `--cli` launches the Textual interface:
+
+1. **Path input** — type or browse to your Takeout folder, then press **Scan**.
+2. **Results** — a scrollable table with all files and their proposed changes.
+3. **Confirm** — review and confirm before writing.
+4. **Summary** — final counts of updated / skipped / errored files.
+
+> **Note**: if Textual is not installed or the terminal doesn't support it, the app falls back to CLI mode with an error message.
+
+### Timestamp resolution logic
+
+```
+For each media file:
+
+  1. Read EXIF DateTimeOriginal    (JPEG / HEIF only)
+  2. Match companion .supplemental-metadata.json
+  3. Read JSON photoTakenTime & creationTime
+  4. Resolve creation time:
+       EXIF DateTimeOriginal  → creation_time  (source: EXIF)
+       JSON photoTakenTime    → creation_time  (source: JSON)
+       neither                 → creation_time  (source: —)
+  5. Resolve modification time:
+       JSON creationTime      → modification_time
+  6. Validate: creation ≤ modification
+       If creation > modification:
+         EXIF source → fall back to JSON photoTakenTime
+         still invalid → clamp creation = modification
+  7. Apply stat(2) changes (write mode only)
+```
+
+---
+
+## Expected file layout
 
 ```
 Takeout/
@@ -53,16 +144,22 @@ Takeout/
 └── ...
 ```
 
-## Stack técnico
+The tool recognises these media extensions: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`, `.mp4`, `.mov`, `.avi`, `.mkv`, `.heic`, `.heif`, `.3gp`.
 
-- **Python 3.10+**
-- **Sin dependencias externas** — usa solo la biblioteca estándar para el
-  procesamiento principal.
-- **Opcional**: `pyexiv2` o `Pillow` para escribir metadatos EXIF en una fase
-  futura.
-- TUI construida con la biblioteca estándar (`argparse`, `os`, `pathlib`, `json`,
-  `datetime`, `stat`, etc.).
+---
 
-## Licencia
+## Stack
+
+| Layer        | Technology                                   |
+|--------------|----------------------------------------------|
+| Runtime      | **Python ≥ 3.10**                            |
+| Core lib     | Standard library only (`pathlib`, `struct`, `json`, `datetime`, `os`, `stat`) |
+| EXIF parsing | Pure Python (`struct` + `datetime`) — no Pillow needed |
+| TUI          | **Textual** ≥ 6.6.0                         |
+| Distribution | `setuptools` + `pyproject.toml`             |
+
+---
+
+## License
 
 MIT
